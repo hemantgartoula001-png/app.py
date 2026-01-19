@@ -1,37 +1,42 @@
 import streamlit as st
 import google.generativeai as genai
 
-# १. एप सेटअप
+# १. एपको सेटअप
 st.set_page_config(page_title="हेमन्तको AI", layout="centered")
 st.title("🤖 हेमन्तको Personal AI")
 
-# २. सुरक्षित साँचो तान्ने (Secrets बाट)
+# २. नयाँ साँचो Secrets बाट सुरक्षित रूपमा तान्ने
 if "GOOGLE_API_KEY" in st.secrets:
     API_KEY = st.secrets["GOOGLE_API_KEY"]
     genai.configure(api_key=API_KEY)
 else:
-    st.error("हेमन्त, Streamlit Secrets मा GOOGLE_API_KEY हाल मुजी!")
+    st.error("ओए हेमन्त, नयाँ Google Account को साँचो Secrets मा हाल मुजी!")
     st.stop()
 
-model = genai.GenerativeModel("gemini-1.5-flash")
+# ३. बलियो मेमोरी सिस्टम (Session State)
+if "chat_history" not in st.session_state:
+    st.session_state.chat_history = []
 
-if "messages" not in st.session_state:
-    st.session_state.messages = []
-
-for message in st.session_state.messages:
+# ४. पुराना गफहरू देखाउने
+for message in st.session_state.chat_history:
     with st.chat_message(message["role"]):
         st.write(message["content"])
 
+# ५. गफगाफ सुरु
 if prompt := st.chat_input("के छ खबर हेमन्त?"):
-    st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
         st.write(prompt)
+    st.session_state.chat_history.append({"role": "user", "content": prompt})
 
     with st.chat_message("assistant"):
         try:
-            response = model.generate_content(f"You are Hemant's best friend. Answer in Nepali. Question: {prompt}")
+            model = genai.GenerativeModel("gemini-1.5-flash")
+            # पुराना गफको सन्दर्भ सहित उत्तर माग्ने
+            context = "\n".join([f"{m['role']}: {m['content']}" for m in st.session_state.chat_history[-5:]])
+            response = model.generate_content(f"तपाईं हेमन्तको मिल्ने साथी हो। यो गफ सम्झेर नेपालीमा उत्तर दिनुहोस्: {context}\nहेमन्त: {prompt}")
+            
             msg = response.text
             st.write(msg)
-            st.session_state.messages.append({"role": "assistant", "content": msg})
+            st.session_state.chat_history.append({"role": "assistant", "content": msg})
         except Exception:
             st.error("गुगलले अझै टेरेन, १ मिनेट पछि 'Refresh' गर!")
